@@ -1,4 +1,13 @@
-WELCOME TO DEVOPSHIFT LABS
+# Docker and Kubernetes Exam
 
-To configure your GIT Repositroy in this IDE please follow the instruction in the link below:
-[Setting up your repo](https://docs.google.com/document/d/1KK8v0CuBd7psSA7v2BUK8LtWGcWr4EpWZL7Ecf8J2Us/edit?usp=sharing)
+This branch contains my Docker and Kubernetes exam work, based on the course
+starter branch `workshop/k8s-docker-exam`.
+
+The solution, run instructions, and test evidence are in
+[`exam-code/docker`](exam-code/docker/README.md). The application fetches
+Bitcoin and XRP prices through a Flask frontend and backend, then stores them
+in MySQL. It runs with Docker Compose or Kubernetes; an optional Helm chart is
+included.
+
+The documented checks were performed on my local Linux lab. No deployment to
+a separate course cluster is claimed.

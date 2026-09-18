@@ -10,6 +10,14 @@ the Flask backend (`backend-service`, port 5001). The backend fetches Bitcoin
 and XRP prices from CoinGecko and writes each result to MySQL (`mysqldb`, port
 3306). A successful response includes `"saved": true` for both coins.
 
+The tested frontend and backend images are published as
+[`droralpern/crypto-frontend:1.0.0`](https://hub.docker.com/r/droralpern/crypto-frontend)
+and
+[`droralpern/crypto-backend:1.0.0`](https://hub.docker.com/r/droralpern/crypto-backend).
+The Kubernetes manifests and Helm chart use these tags, so a cluster with
+Docker Hub access can pull the application images. The local kind workflow
+below also shows how to load the images directly from this machine.
+
 ## Run with Docker Compose
 
 From this directory on the Linux machine:
