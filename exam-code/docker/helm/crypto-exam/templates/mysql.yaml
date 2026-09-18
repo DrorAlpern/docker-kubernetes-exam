@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysqldb-data
+  labels:
+    app: mysqldb
+    app.kubernetes.io/name: crypto-exam
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  accessModes:
+    {{- toYaml .Values.mysql.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.mysql.persistence.size }}
+  {{- if .Values.mysql.persistence.storageClassName }}
+  storageClassName: {{ .Values.mysql.persistence.storageClassName | quote }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysqldb
+  labels:
+    app: mysqldb
+    app.kubernetes.io/name: crypto-exam
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.mysql.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mysqldb
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: mysqldb
+        app.kubernetes.io/name: crypto-exam
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: mysqldb
+          image: "{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+          imagePullPolicy: {{ .Values.mysql.image.pullPolicy }}
+          command: ["/bin/bash", "-ec"]
+          args:
+            - "ulimit -Sn 65535; exec /usr/local/bin/docker-entrypoint.sh mysqld"
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mysql.credentials.existingSecret | quote }}
+                  key: {{ .Values.mysql.credentials.rootPasswordKey | quote }}
+            - name: MYSQL_DATABASE
+              value: {{ .Values.mysql.database | quote }}
+          startupProbe:
+            tcpSocket:
+              port: mysql
+            periodSeconds: 10
+            failureThreshold: 18
+          readinessProbe:
+            tcpSocket:
+              port: mysql
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: mysql
+            periodSeconds: 10
+          volumeMounts:
+            - name: mysqldb-data
+              mountPath: /var/lib/mysql
+          resources:
+            {{- toYaml .Values.mysql.resources | nindent 12 }}
+      volumes:
+        - name: mysqldb-data
+          persistentVolumeClaim:
+            claimName: mysqldb-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqldb
+  labels:
+    app: mysqldb
+    app.kubernetes.io/name: crypto-exam
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: {{ .Values.mysql.service.type }}
+  selector:
+    app: mysqldb
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: mysql
+      port: {{ .Values.mysql.service.port }}
+      targetPort: mysql

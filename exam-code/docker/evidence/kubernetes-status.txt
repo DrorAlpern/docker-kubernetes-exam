@@ -1,0 +1,19 @@
+2026-09-18T09:25:51+03:00
+
+$ kubectl -n crypto-exam get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+backend-service-5cf5b76f4b-bkrls   1/1     Running   0          112s
+backend-service-5cf5b76f4b-x7fpf   1/1     Running   0          118s
+mysqldb-75c8745b8b-n2vn6           1/1     Running   0          3m18s
+web-865644f99f-h8zgp               1/1     Running   0          16m
+web-865644f99f-l8tgr               1/1     Running   0          16m
+
+$ kubectl -n crypto-exam get svc
+NAME              TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+backend-service   ClusterIP      10.96.26.134   <none>        5001/TCP         16m
+mysqldb           ClusterIP      10.96.19.235   <none>        3306/TCP         16m
+web               LoadBalancer   10.96.136.7    <pending>     5002:30195/TCP   16m
+
+$ kubectl -n crypto-exam get pvc
+NAME         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+mysql-data   Bound    pvc-cbee02e4-4ed7-4e4a-b4d6-b677303cdbbe   1Gi        RWO            standard       <unset>                 16m

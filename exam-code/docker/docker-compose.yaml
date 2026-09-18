@@ -1,9 +1,53 @@
+name: crypto-exam
+
 services:
   web:
-
+    build: ./fe
+    image: droralpern/crypto-frontend:1.0.0
+    ports:
+      - "127.0.0.1:5002:5002"
+    depends_on:
+      backend-service:
+        condition: service_healthy
+    networks:
+      - crypto-net
+    restart: unless-stopped
 
   backend-service:
-
+    build: ./be
+    image: droralpern/crypto-backend:1.0.0
+    environment:
+      MYSQL_HOST: mysqldb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_DATABASE: crypto_db
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+    networks:
+      - crypto-net
+    restart: unless-stopped
 
   mysqldb:
-      
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
+      MYSQL_DATABASE: crypto_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - crypto-net
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  crypto-net:
+    driver: bridge
+
+volumes:
+  mysql-data:

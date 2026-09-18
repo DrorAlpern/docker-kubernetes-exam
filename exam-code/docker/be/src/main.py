@@ -1,104 +1,121 @@
-from flask import Flask, request, jsonify
-import requests
-import mysql.connector
+"""Backend API for the course's cryptocurrency price tracker."""
+
 import os
+import re
 import time
+from datetime import datetime, timezone
+
+import mysql.connector
+import requests
+from flask import Flask, jsonify
 from flask_cors import CORS
-from datetime import datetime
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+CORS(app)
 
-# MySQL Configuration
+DATABASE = os.getenv("MYSQL_DATABASE", "crypto_db")
+if not re.fullmatch(r"[A-Za-z0-9_]+", DATABASE):
+    raise ValueError("MYSQL_DATABASE must contain only letters, digits, or underscores")
+
 DB_CONFIG = {
-    "host": os.environ.get("MYSQL_HOST", "localhost"),
-    "user": os.environ.get("MYSQL_USER", "root"),
-    "password": os.environ.get("MYSQL_PASSWORD", "password"),
-    "database": "crypto_db"
+    "host": os.getenv("MYSQL_HOST", "mysqldb"),
+    "port": int(os.getenv("MYSQL_PORT", "3306")),
+    "user": os.getenv("MYSQL_USER", "root"),
+    "password": os.getenv("MYSQL_PASSWORD", ""),
+    "database": DATABASE,
 }
+COIN_API_URL = (
+    "https://api.coingecko.com/api/v3/simple/price"
+    "?ids=bitcoin,ripple&vs_currencies=usd"
+)
 
-# API to fetch crypto prices
-COIN_API_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,xrp&vs_currencies=usd"
-
-def get_crypto_prices():
-    response = requests.get(COIN_API_URL)
-    if response.status_code == 200:
-        return response.json()
-    return {}
 
 def initialize_database():
-    print("Initializing database...")
-    max_retries = 5
-    retry_delay = 5  # seconds
-
-    for attempt in range(max_retries):
+    """Wait for MySQL and make sure the database and price table exist."""
+    for attempt in range(1, 11):
         try:
-            conn = mysql.connector.connect(
+            connection = mysql.connector.connect(
                 host=DB_CONFIG["host"],
+                port=DB_CONFIG["port"],
                 user=DB_CONFIG["user"],
-                password=DB_CONFIG["password"]
+                password=DB_CONFIG["password"],
+                connection_timeout=5,
             )
-            cursor = conn.cursor()
-            cursor.execute("CREATE DATABASE IF NOT EXISTS crypto_db")
+            cursor = connection.cursor()
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{DATABASE}`")
             cursor.close()
-            conn.close()
-            
-            conn = mysql.connector.connect(**DB_CONFIG)
-            cursor = conn.cursor()
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS crypto_prices (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                coin_name VARCHAR(10) NOT NULL,
-                price DECIMAL(18,8) NOT NULL,
-                timestamp DATETIME NOT NULL
+            connection.close()
+
+            connection = mysql.connector.connect(**DB_CONFIG)
+            cursor = connection.cursor()
+            cursor.execute(
+                """CREATE TABLE IF NOT EXISTS crypto_prices (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    coin_name VARCHAR(10) NOT NULL,
+                    price DECIMAL(18, 8) NOT NULL,
+                    timestamp DATETIME NOT NULL
+                )"""
             )
-            """
-            cursor.execute(create_table_query)
-            conn.commit()
+            connection.commit()
             cursor.close()
-            conn.close()
-            print("Database and table are initialized.")
+            connection.close()
+            app.logger.info("Database is ready")
             return
-        except mysql.connector.Error as db_err:
-            print(f"Database initialization error (attempt {attempt+1}/{max_retries}): {db_err}")
-            if attempt < max_retries - 1:
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                print("Database connection failed. Exiting.")
-                exit(1)
+        except mysql.connector.Error as error:
+            app.logger.warning("MySQL is not ready (%s/10): %s", attempt, error)
+            if attempt == 10:
+                raise SystemExit("Could not initialize the database") from error
+            time.sleep(5)
 
-def save_to_db(coin_name, price):
+
+def get_crypto_prices():
+    """Fetch Bitcoin and XRP prices; CoinGecko calls XRP 'ripple'."""
+    response = requests.get(COIN_API_URL, timeout=15)
+    response.raise_for_status()
+    prices = response.json()
+    return {
+        "bitcoin": prices["bitcoin"]["usd"],
+        "xrp": prices["ripple"]["usd"],
+    }
+
+
+def save_to_db(coin, price):
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
-        query = "INSERT INTO crypto_prices (coin_name, price, timestamp) VALUES (%s, %s, %s)"
-        cursor.execute(query, (coin_name, price, datetime.utcnow()))
-        conn.commit()
+        connection = mysql.connector.connect(**DB_CONFIG)
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO crypto_prices (coin_name, price, timestamp) VALUES (%s, %s, %s)",
+            (coin, price, datetime.now(timezone.utc).replace(tzinfo=None)),
+        )
+        connection.commit()
         cursor.close()
-        conn.close()
-        print(f"Successfully saved {coin_name}: ${price}")
+        connection.close()
         return True
-    except mysql.connector.Error as db_err:
-        print(f"Database error: {db_err}")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-    return False
+    except mysql.connector.Error as error:
+        app.logger.error("Could not save %s to MySQL: %s", coin, error)
+        return False
 
-@app.route('/fetch_price', methods=['GET'])
+
+@app.get("/healthz")
+def healthz():
+    return jsonify({"status": "ok"})
+
+
+@app.get("/fetch_price")
 def fetch_price():
-    prices = get_crypto_prices()
-    if prices:
-        results = []
-        for coin, data in prices.items():
-            success = save_to_db(coin, data['usd'])
-            results.append({"coin": coin, "price": data['usd'], "saved": success})
-            if not success:
-                print(f"Failed to save {coin}: ${data['usd']}")
-        return jsonify(results)
-    print("Error: Failed to fetch prices from API")
-    return jsonify({"error": "Failed to fetch prices"}), 500
+    try:
+        prices = get_crypto_prices()
+    except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+        app.logger.error("Could not fetch prices: %s", error)
+        return jsonify({"error": "Price service is temporarily unavailable"}), 502
 
-if __name__ == '__main__':
+    results = [
+        {"coin": coin, "price": price, "saved": save_to_db(coin, price)}
+        for coin, price in prices.items()
+    ]
+    return jsonify(results)
+
+
+if __name__ == "__main__":
     initialize_database()
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5001)

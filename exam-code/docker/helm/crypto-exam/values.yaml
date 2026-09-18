@@ -1,0 +1,61 @@
+frontend:
+  replicaCount: 2
+  image:
+    repository: droralpern/crypto-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: LoadBalancer
+    port: 5002
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+backend:
+  replicaCount: 2
+  image:
+    repository: droralpern/crypto-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5001
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+mysql:
+  replicaCount: 1
+  image:
+    repository: mysql
+    tag: "5.7"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3306
+  database: crypto_db
+  credentials:
+    # Create this Secret in the target namespace before installing the chart.
+    existingSecret: mysql-credentials
+    rootPasswordKey: MYSQL_ROOT_PASSWORD
+  persistence:
+    size: 1Gi
+    accessModes:
+      - ReadWriteOnce
+    # Leave empty to use the cluster's default StorageClass.
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi

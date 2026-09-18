@@ -1,0 +1,29 @@
+2026-09-18T09:30:52+03:00
+
+$ helm status crypto-exam -n crypto-helm
+NAME: crypto-exam
+LAST DEPLOYED: Fri Sep 18 09:30:22 2026
+NAMESPACE: crypto-helm
+STATUS: deployed
+REVISION: 4
+DESCRIPTION: Upgrade complete
+RESOURCES:
+==> v1/PersistentVolumeClaim
+
+$ kubectl -n crypto-helm get deployments,pods,svc
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/backend-service   2/2     2            2           3m40s
+deployment.apps/mysqldb           1/1     1            1           3m40s
+deployment.apps/web               2/2     2            2           3m40s
+
+NAME                                   READY   STATUS    RESTARTS   AGE
+pod/backend-service-869b6b8494-9jbq8   1/1     Running   0          3m40s
+pod/backend-service-869b6b8494-r7cgt   1/1     Running   0          3m40s
+pod/mysqldb-6d4f4c4694-7s88f           1/1     Running   0          3m40s
+pod/web-6b9b9bc998-hlk7x               1/1     Running   0          3m40s
+pod/web-6b9b9bc998-jx882               1/1     Running   0          30s
+
+NAME                      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+service/backend-service   ClusterIP      10.96.232.36   <none>        5001/TCP         3m40s
+service/mysqldb           ClusterIP      10.96.188.86   <none>        3306/TCP         3m40s
+service/web               LoadBalancer   10.96.94.182   <pending>     5002:30316/TCP   3m40s
