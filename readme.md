@@ -1,13 +1,11 @@
 # Docker and Kubernetes Exam
 
-This branch contains my Docker and Kubernetes exam work, based on the course
-starter branch `workshop/k8s-docker-exam`.
+This repository contains the Docker and Kubernetes course assignment, based on
+[the supplied starter](https://github.com/yanivomc/devopshift-welcome/tree/workshop/k8s-docker-exam/exam-code/docker).
 
-The solution, run instructions, and test evidence are in
-[`exam-code/docker`](exam-code/docker/README.md). The application fetches
-Bitcoin and XRP prices through a Flask frontend and backend, then stores them
-in MySQL. It runs with Docker Compose or Kubernetes; an optional Helm chart is
-included.
+The [solution and run instructions](exam-code/docker/README.md) cover the
+frontend, backend, and MySQL services in Docker Compose and Kubernetes.
+Screenshots and the optional Helm chart are included there.
 
-The documented checks were performed on my local Linux lab. No deployment to
-a separate course cluster is claimed.
+The [rolling DevOps project](https://github.com/DrorAlpern/devops-final-exam)
+is a separate assignment.
